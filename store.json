@@ -1,0 +1,376 @@
+{
+  "business": {
+    "name": "STEAK BURGER",
+    "city": "Бишкек",
+    "phone": "0559310520",
+    "address": "Шералиева 186/2",
+    "hours": "24/7",
+    "deliveryFee": 150,
+    "freeDeliveryFrom": 1800
+  },
+  "deliveryZones": [
+    {
+      "id": "center",
+      "name": "Центр",
+      "keywords": [
+        "центр",
+        "киевская",
+        "токтогула",
+        "чүй",
+        "чui",
+        "цум",
+        "манаса",
+        "советская"
+      ],
+      "deliveryFee": 100,
+      "freeDeliveryFrom": 1500,
+      "eta": "25-35 минут",
+      "comment": "Быстрая зона рядом с центром",
+      "active": true,
+      "isDefault": false,
+      "createdAt": "2026-05-09T00:00:00.000Z",
+      "updatedAt": "2026-05-09T15:10:55.922Z"
+    },
+    {
+      "id": "south-microdistricts",
+      "name": "Южные микрорайоны",
+      "keywords": [
+        "асанбай",
+        "джал",
+        "7 мкр",
+        "8 мкр",
+        "10 мкр",
+        "12 мкр",
+        "южная магистраль"
+      ],
+      "deliveryFee": 180,
+      "freeDeliveryFrom": 2200,
+      "eta": "35-50 минут",
+      "comment": "Дальняя городская зона",
+      "active": true,
+      "isDefault": false,
+      "createdAt": "2026-05-09T00:00:00.000Z",
+      "updatedAt": "2026-05-09T15:10:55.922Z"
+    },
+    {
+      "id": "bishkek-default",
+      "name": "Бишкек стандарт",
+      "keywords": [
+        "бишкек"
+      ],
+      "deliveryFee": 150,
+      "freeDeliveryFrom": 1800,
+      "eta": "30-45 минут",
+      "comment": "Зона по умолчанию, если район не определился",
+      "active": true,
+      "isDefault": false,
+      "createdAt": "2026-05-09T00:00:00.000Z",
+      "updatedAt": "2026-05-09T15:10:55.922Z"
+    },
+    {
+      "id": "item-moyhc69p",
+      "name": "центр",
+      "keywords": [],
+      "deliveryFee": 130,
+      "freeDeliveryFrom": 1600,
+      "eta": "45",
+      "comment": "",
+      "active": true,
+      "isDefault": true,
+      "createdAt": "2026-05-09T15:09:17.629Z",
+      "updatedAt": "2026-05-09T15:10:55.922Z"
+    }
+  ],
+  "admin": {
+    "username": "Мухаммед",
+    "salt": "steak-burger-bishkek-admin",
+    "passwordHash": "3565904d69ac27a06bc22437293acefd5a03193deb3a1690ee3ee44268c62c3928b93969746c4d832eb4d2cee955bf0b7c8f0a4c39200189f01f771b3c164931"
+  },
+  "users": [
+    {
+      "active": true,
+      "id": "u-manager",
+      "username": "Мухаммед",
+      "role": "manager",
+      "salt": "steak-burger-bishkek-admin",
+      "passwordHash": "3565904d69ac27a06bc22437293acefd5a03193deb3a1690ee3ee44268c62c3928b93969746c4d832eb4d2cee955bf0b7c8f0a4c39200189f01f771b3c164931",
+      "createdAt": "2026-05-09T00:00:00.000Z"
+    },
+    {
+      "active": true,
+      "id": "UMOYGKHCRWFSA",
+      "username": "Адылбек",
+      "role": "operator",
+      "salt": "f5733a13f2a30471167945d2b8d8b93f",
+      "passwordHash": "0ee164e541d45a8f3d10258ff6cbe5b23c25d1262ed41e80dd4eaa218b1f29a2ff630b2def419fd8e210206669d563d61297d929079cc0d56722b100a2ed3f25",
+      "createdAt": "2026-05-09T14:47:45.627Z"
+    }
+  ],
+  "promos": [
+    {
+      "code": "BURGER10",
+      "type": "percent",
+      "value": 10,
+      "minSubtotal": 0,
+      "active": true,
+      "uses": 0,
+      "createdAt": "2026-05-09T00:00:00.000Z",
+      "updatedAt": "2026-05-09T15:10:55.922Z"
+    }
+  ],
+  "clients": [
+    {
+      "id": "CMOYGJTDEG7I2",
+      "name": "Mukhammed Aidarov",
+      "phone": "+996559310520",
+      "address": "Bishkek",
+      "notes": "",
+      "tags": [],
+      "ordersCount": 3,
+      "totalSpent": 4080,
+      "lastOrderAt": "2026-05-09T14:39:33.010Z",
+      "createdAt": "2026-05-09T14:34:50.817Z",
+      "updatedAt": "2026-05-09T14:47:17.296Z"
+    }
+  ],
+  "menu": [
+    {
+      "active": true,
+      "id": "classic-burger",
+      "name": "Classic Burger",
+      "category": "burgers",
+      "price": 260,
+      "weight": "1 шт, 280 г",
+      "desc": "Говяжья котлета, сыр, томат, салат, фирменный соус.",
+      "tags": [
+        "хит",
+        "сочный"
+      ],
+      "image": "https://images.unsplash.com/photo-1568901346375-23c9450c58cd?auto=format&fit=crop&w=760&q=80"
+    },
+    {
+      "active": true,
+      "id": "double-cheese",
+      "name": "Double Cheese",
+      "category": "burgers",
+      "price": 340,
+      "weight": "1 шт, 360 г",
+      "desc": "Две котлеты, двойной сыр, маринованный огурец, лук.",
+      "tags": [
+        "сытный",
+        "сыр"
+      ],
+      "image": "https://images.unsplash.com/photo-1550547660-d9450f859349?auto=format&fit=crop&w=760&q=80"
+    },
+    {
+      "active": true,
+      "id": "steak-burger",
+      "name": "Steak Burger",
+      "category": "burgers",
+      "price": 420,
+      "weight": "1 шт, 390 г",
+      "desc": "Стейк из говядины, чеддер, карамельный лук, BBQ-соус.",
+      "tags": [
+        "фирменный",
+        "BBQ"
+      ],
+      "image": "https://images.unsplash.com/photo-1594212699903-ec8a3eca50f5?auto=format&fit=crop&w=760&q=80"
+    },
+    {
+      "active": true,
+      "id": "ribeye-steak",
+      "name": "Стейк рибай",
+      "category": "steaks",
+      "price": 890,
+      "weight": "300 г",
+      "desc": "Говяжий рибай, соль, перец, масло с травами.",
+      "tags": [
+        "гриль",
+        "премиум"
+      ],
+      "image": "https://images.unsplash.com/photo-1558030006-450675393462?auto=format&fit=crop&w=760&q=80"
+    },
+    {
+      "active": true,
+      "id": "chicken-wings",
+      "name": "Крылышки BBQ",
+      "category": "sides",
+      "price": 280,
+      "weight": "6 шт",
+      "desc": "Куриные крылышки в соусе BBQ, кунжут, зелень.",
+      "tags": [
+        "остро",
+        "BBQ"
+      ],
+      "image": "https://images.unsplash.com/photo-1608039755401-742074f0548d?auto=format&fit=crop&w=760&q=80"
+    },
+    {
+      "active": true,
+      "id": "fries",
+      "name": "Картофель фри",
+      "category": "sides",
+      "price": 130,
+      "weight": "180 г",
+      "desc": "Хрустящий картофель фри с солью и фирменным соусом.",
+      "tags": [
+        "гарнир"
+      ],
+      "image": "https://images.unsplash.com/photo-1573080496219-bb080dd4f877?auto=format&fit=crop&w=760&q=80"
+    },
+    {
+      "active": true,
+      "id": "cola",
+      "name": "Coca-Cola",
+      "category": "drinks",
+      "price": 90,
+      "weight": "0.5 л",
+      "desc": "Охлажденный напиток.",
+      "tags": [
+        "cold"
+      ],
+      "image": "https://images.unsplash.com/photo-1622483767028-3f66f32aef97?auto=format&fit=crop&w=760&q=80"
+    },
+    {
+      "active": true,
+      "id": "berry-lemonade",
+      "name": "Ягодный лимонад",
+      "category": "drinks",
+      "price": 160,
+      "weight": "400 мл",
+      "desc": "Домашний лимонад с ягодами, лаймом и мятой.",
+      "tags": [
+        "освежает"
+      ],
+      "image": "https://images.unsplash.com/photo-1621263764928-df1444c5e859?auto=format&fit=crop&w=760&q=80"
+    }
+  ],
+  "orders": [
+    {
+      "id": "MOYG9X8Y",
+      "createdAt": "2026-05-09T14:39:33.010Z",
+      "status": "done",
+      "customer": {
+        "name": "Mukhammed Aidarov",
+        "phone": "+996559310520",
+        "address": "Bishkek",
+        "comment": ""
+      },
+      "deliveryType": "delivery",
+      "deliveryTime": "Как можно скорее",
+      "peopleCount": "1 персона",
+      "payment": "mbank",
+      "promoCode": "",
+      "items": [
+        {
+          "id": "ribeye-steak",
+          "name": "Стейк рибай",
+          "price": 890,
+          "quantity": 3,
+          "total": 2670
+        }
+      ],
+      "subtotal": 2670,
+      "discount": 0,
+      "delivery": 0,
+      "total": 2670,
+      "updatedAt": "2026-05-09T15:10:51.542Z"
+    },
+    {
+      "id": "MOYG4EJH",
+      "createdAt": "2026-05-09T14:35:15.485Z",
+      "status": "done",
+      "customer": {
+        "name": "Mukhammed Aidarov",
+        "phone": "+996559310520",
+        "address": "Bishkek",
+        "comment": ""
+      },
+      "deliveryType": "delivery",
+      "deliveryTime": "Как можно скорее",
+      "peopleCount": "1 персона",
+      "payment": "mbank",
+      "promoCode": "",
+      "items": [
+        {
+          "id": "cola",
+          "name": "Coca-Cola",
+          "price": 90,
+          "quantity": 3,
+          "total": 270
+        }
+      ],
+      "subtotal": 270,
+      "discount": 0,
+      "delivery": 150,
+      "total": 420,
+      "updatedAt": "2026-05-09T15:10:53.624Z"
+    },
+    {
+      "id": "MOYG3VI9",
+      "createdAt": "2026-05-09T14:34:50.817Z",
+      "status": "done",
+      "customer": {
+        "name": "Mukhammed Aidarov",
+        "phone": "+996559310520",
+        "address": "Bishkek",
+        "comment": ""
+      },
+      "deliveryType": "delivery",
+      "deliveryTime": "Как можно скорее",
+      "peopleCount": "1 персона",
+      "payment": "mbank",
+      "promoCode": "",
+      "items": [
+        {
+          "id": "steak-burger",
+          "name": "Steak Burger",
+          "price": 420,
+          "quantity": 2,
+          "total": 840
+        }
+      ],
+      "subtotal": 840,
+      "discount": 0,
+      "delivery": 150,
+      "total": 990,
+      "updatedAt": "2026-05-09T15:10:55.921Z"
+    },
+    {
+      "id": "MOYFQY76",
+      "createdAt": "2026-05-09T14:24:47.778Z",
+      "status": "cooking",
+      "customer": {
+        "name": "Тестовый клиент",
+        "phone": "0559310520",
+        "address": "Шералиева 186/2",
+        "comment": "Тест из Codex"
+      },
+      "deliveryType": "delivery",
+      "deliveryTime": "Как можно скорее",
+      "peopleCount": "2 персоны",
+      "payment": "elqr",
+      "promoCode": "BURGER10",
+      "items": [
+        {
+          "id": "classic-burger",
+          "name": "Classic Burger",
+          "price": 260,
+          "quantity": 1,
+          "total": 260
+        },
+        {
+          "id": "fries",
+          "name": "Картофель фри",
+          "price": 130,
+          "quantity": 1,
+          "total": 130
+        }
+      ],
+      "subtotal": 390,
+      "discount": 39,
+      "delivery": 150,
+      "total": 501,
+      "updatedAt": "2026-05-09T14:31:36.993Z"
+    }
+  ]
+}
