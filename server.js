@@ -6,8 +6,13 @@ const crypto = require("node:crypto");
 const PORT = Number(process.env.PORT || 4173);
 const HOST = process.env.HOST || "0.0.0.0";
 const ROOT = __dirname;
-const STORE_PATH = path.join(ROOT, "data", "store.json");
+const STORE_PATH = path.join(ROOT, "store.json");
 const TOKEN_SECRET = "steak-burger-local-admin-token";
+const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN || "";
+const TELEGRAM_CHAT_ID = process.env.TELEGRAM_CHAT_ID || "";
+const TELEGRAM_WEBHOOK_SECRET = process.env.TELEGRAM_WEBHOOK_SECRET || "";
+const CLOUDINARY_CLOUD_NAME = process.env.CLOUDINARY_CLOUD_NAME || "";
+const CLOUDINARY_UPLOAD_PRESET = process.env.CLOUDINARY_UPLOAD_PRESET || "";
 
 const MIME_TYPES = {
   ".html": "text/html; charset=utf-8",
@@ -23,6 +28,45 @@ const MIME_TYPES = {
 
 const roles = new Set(["manager", "operator"]);
 const statuses = new Set(["new", "accepted", "cooking", "delivery", "done", "cancelled"]);
+const statusLabels = {
+  new: "Новый",
+  accepted: "Принят",
+  cooking: "Готовится",
+  delivery: "Передан курьеру",
+  done: "Завершен",
+  cancelled: "Отменен"
+};
+const paymentLabels = {
+  elqr: "ELQR",
+  mbank: "MBANK",
+  odengi: "O!Деньги / Элсом",
+  courier: "Курьеру"
+};
+const deliveryLabels = {
+  delivery: "Доставка",
+  pickup: "Самовывоз"
+};
+const defaultCategories = [
+  { id: "burgers", name: "Бургеры", sort: 10, active: true },
+  { id: "steaks", name: "Стейки", sort: 20, active: true },
+  { id: "sides", name: "Закуски", sort: 30, active: true },
+  { id: "drinks", name: "Напитки", sort: 40, active: true }
+];
+const defaultBanners = [
+  {
+    id: "main-burger",
+    title: "STEAK BURGER",
+    subtitle: "Свежие блюда в Бишкеке с понятным онлайн-заказом: выберите позиции, укажите доставку и оплатите заказ на этой же странице.",
+    kicker: "меню, доставка и оплата",
+    image: "https://images.unsplash.com/photo-1550547660-d9450f859349?auto=format&fit=crop&w=1800&q=82",
+    primaryText: "Открыть меню",
+    primaryLink: "#menu",
+    secondaryText: "Перейти к оплате",
+    secondaryLink: "#order",
+    active: true,
+    sort: 10
+  }
+];
 
 function now() {
   return new Date().toISOString();
@@ -35,6 +79,18 @@ function makeId(prefix = "") {
 function sendJson(res, status, body) {
   res.writeHead(status, { "Content-Type": "application/json; charset=utf-8" });
   res.end(JSON.stringify(body));
+}
+
+function escapeHtml(value) {
+  return String(value ?? "")
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;");
+}
+
+function formatMoney(value) {
+  return `${Math.round(Number(value || 0))} сом`;
 }
 
 function parseBody(req) {
@@ -79,6 +135,7 @@ function normalizeStore(store) {
     phone: "0559310520",
     address: "Шералиева 186/2",
     hours: "24/7",
+    logoUrl: "",
     deliveryFee: 150,
     freeDeliveryFrom: 1800
   };
@@ -109,6 +166,8 @@ function normalizeStore(store) {
     }
   ];
   store.menu ||= [];
+  store.categories ||= defaultCategories;
+  store.banners ||= defaultBanners;
   store.orders ||= [];
   store.promos ||= [{
     code: "BURGER10",
@@ -140,6 +199,12 @@ function normalizeStore(store) {
     tags: Array.isArray(item.tags) ? item.tags : normalizeTags(item.tags)
   }));
 
+  store.categories = store.categories
+    .map((category) => normalizeCategory(category, category))
+    .sort((a, b) => Number(a.sort || 0) - Number(b.sort || 0));
+  store.banners = store.banners
+    .map((banner) => normalizeBanner(banner, banner))
+    .sort((a, b) => Number(a.sort || 0) - Number(b.sort || 0));
   store.promos = store.promos.map((promo) => normalizePromo(promo, promo));
   store.deliveryZones = store.deliveryZones.map((zone) => normalizeDeliveryZone(zone, zone));
   store.users = store.users.map((user) => ({ active: true, ...user }));
@@ -212,7 +277,7 @@ function getCurrentUser(req, store) {
   return user || null;
 }
 
-function requireUser(req, res, store, allowedRoles = ["manager", "operator"]) {
+function requireUser(req, res, store, allowedRoles = ["manager"]) {
   const user = getCurrentUser(req, store);
   if (!user) {
     sendJson(res, 401, { error: "Нужен вход в админку." });
@@ -237,12 +302,89 @@ function normalizeTags(tags) {
     .filter(Boolean);
 }
 
+function normalizePolygon(polygon) {
+  if (!Array.isArray(polygon)) return [];
+  return polygon
+    .map((point) => ({
+      lat: Number(point.lat),
+      lng: Number(point.lng)
+    }))
+    .filter((point) => Number.isFinite(point.lat) && Number.isFinite(point.lng));
+}
+
 function slugify(value) {
   const slug = String(value || "")
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-+|-+$/g, "");
   return slug || `item-${Date.now().toString(36)}`;
+}
+
+function normalizeBusiness(body, existing = {}) {
+  return {
+    ...existing,
+    name: String(body.name ?? existing.name ?? "STEAK BURGER").trim(),
+    city: String(body.city ?? existing.city ?? "Бишкек").trim(),
+    phone: String(body.phone ?? existing.phone ?? "").trim(),
+    address: String(body.address ?? existing.address ?? "").trim(),
+    hours: String(body.hours ?? existing.hours ?? "24/7").trim(),
+    logoUrl: String(body.logoUrl ?? existing.logoUrl ?? "").trim(),
+    deliveryFee: Math.max(0, Number(body.deliveryFee ?? existing.deliveryFee ?? 0)),
+    freeDeliveryFrom: Math.max(0, Number(body.freeDeliveryFrom ?? existing.freeDeliveryFrom ?? 0)),
+    updatedAt: now()
+  };
+}
+
+function normalizeCategory(body, existing = {}) {
+  const name = String(body.name ?? existing.name ?? "").trim();
+  const id = existing.id || slugify(body.id || name);
+
+  if (!name) {
+    const error = new Error("Укажите название категории.");
+    error.status = 400;
+    throw error;
+  }
+
+  return {
+    id,
+    name,
+    sort: Number(body.sort ?? existing.sort ?? 100),
+    active: body.active === undefined ? existing.active !== false : Boolean(body.active),
+    createdAt: existing.createdAt || now(),
+    updatedAt: now()
+  };
+}
+
+function normalizeBanner(body, existing = {}) {
+  const title = String(body.title ?? existing.title ?? "").trim();
+  const image = String(body.image ?? existing.image ?? "").trim();
+
+  if (!title) {
+    const error = new Error("Укажите заголовок баннера.");
+    error.status = 400;
+    throw error;
+  }
+  if (!image) {
+    const error = new Error("Укажите ссылку на изображение баннера.");
+    error.status = 400;
+    throw error;
+  }
+
+  return {
+    id: existing.id || slugify(body.id || title),
+    title,
+    subtitle: String(body.subtitle ?? existing.subtitle ?? "").trim(),
+    kicker: String(body.kicker ?? existing.kicker ?? "").trim(),
+    image,
+    primaryText: String(body.primaryText ?? existing.primaryText ?? "Открыть меню").trim(),
+    primaryLink: String(body.primaryLink ?? existing.primaryLink ?? "#menu").trim(),
+    secondaryText: String(body.secondaryText ?? existing.secondaryText ?? "Перейти к оплате").trim(),
+    secondaryLink: String(body.secondaryLink ?? existing.secondaryLink ?? "#order").trim(),
+    sort: Number(body.sort ?? existing.sort ?? 100),
+    active: body.active === undefined ? existing.active !== false : Boolean(body.active),
+    createdAt: existing.createdAt || now(),
+    updatedAt: now()
+  };
 }
 
 function normalizeMenuItem(body, existing = {}) {
@@ -316,6 +458,8 @@ function normalizeDeliveryZone(body, existing = {}) {
     freeDeliveryFrom: Math.max(0, Number(body.freeDeliveryFrom ?? existing.freeDeliveryFrom ?? 0)),
     eta: String(body.eta ?? existing.eta ?? "").trim(),
     comment: String(body.comment ?? existing.comment ?? "").trim(),
+    color: String(body.color ?? existing.color ?? "#0f8b6b").trim(),
+    polygon: normalizePolygon(body.polygon ?? existing.polygon),
     active: body.active === undefined ? existing.active !== false : Boolean(body.active),
     isDefault: body.isDefault === undefined ? Boolean(existing.isDefault) : Boolean(body.isDefault),
     createdAt: existing.createdAt || now(),
@@ -502,11 +646,229 @@ function buildOrder(store, body) {
   };
 }
 
+function telegramEnabled() {
+  return Boolean(TELEGRAM_BOT_TOKEN && TELEGRAM_CHAT_ID);
+}
+
+async function callTelegram(method, payload) {
+  if (!TELEGRAM_BOT_TOKEN) return null;
+
+  const response = await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/${method}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+    signal: AbortSignal.timeout(8000)
+  });
+  const result = await response.json().catch(() => ({}));
+
+  if (!response.ok || result.ok === false) {
+    throw new Error(result.description || `Telegram ${method} failed`);
+  }
+
+  return result.result;
+}
+
+function telegramOrderKeyboard(order) {
+  return {
+    inline_keyboard: [
+      [
+        { text: "Принять", callback_data: `status:${order.id}:accepted` },
+        { text: "Готовится", callback_data: `status:${order.id}:cooking` }
+      ],
+      [
+        { text: "Курьеру", callback_data: `status:${order.id}:delivery` },
+        { text: "Завершен", callback_data: `status:${order.id}:done` }
+      ],
+      [
+        { text: "Отменить", callback_data: `status:${order.id}:cancelled` }
+      ]
+    ]
+  };
+}
+
+function formatTelegramOrder(order) {
+  const items = order.items
+    .map((item) => `• ${escapeHtml(item.name)} x ${item.quantity} = ${formatMoney(item.total)}`)
+    .join("\n");
+  const zone = order.deliveryZone?.name
+    ? `${escapeHtml(order.deliveryZone.name)}${order.deliveryZone.eta ? `, ${escapeHtml(order.deliveryZone.eta)}` : ""}`
+    : "Не определена";
+  const address = order.deliveryType === "pickup"
+    ? "Самовывоз"
+    : escapeHtml(order.customer.address || "Адрес не указан");
+  const comment = order.customer.comment ? `\nКомментарий: ${escapeHtml(order.customer.comment)}` : "";
+  const promo = order.promoCode ? `\nПромокод: ${escapeHtml(order.promoCode)} (-${formatMoney(order.discount)})` : "";
+
+  return [
+    `<b>Заказ ${escapeHtml(order.id)}</b>`,
+    `Статус: <b>${escapeHtml(statusLabels[order.status] || order.status)}</b>`,
+    "",
+    `<b>Клиент</b>`,
+    `${escapeHtml(order.customer.name)} | ${escapeHtml(order.customer.phone)}`,
+    `Тип: ${escapeHtml(deliveryLabels[order.deliveryType] || order.deliveryType)}`,
+    `Адрес: ${address}`,
+    `Зона: ${zone}`,
+    `Время: ${escapeHtml(order.deliveryTime)}`,
+    `Персон: ${escapeHtml(order.peopleCount)}${comment}`,
+    "",
+    `<b>Состав</b>`,
+    items,
+    "",
+    `<b>Оплата</b>`,
+    `Метод: ${escapeHtml(paymentLabels[order.payment] || order.payment)}`,
+    `Блюда: ${formatMoney(order.subtotal)}`,
+    `Доставка: ${formatMoney(order.delivery)}${promo}`,
+    `Итого: <b>${formatMoney(order.total)}</b>`
+  ].join("\n");
+}
+
+async function rememberTelegramMessage(orderId, message) {
+  if (!message) return;
+
+  const store = await readStore();
+  const order = store.orders.find((item) => item.id === orderId);
+  if (!order) return;
+
+  order.telegram = {
+    chatId: String(message.chat?.id || TELEGRAM_CHAT_ID),
+    messageId: message.message_id,
+    sentAt: now()
+  };
+  await writeStore(store);
+}
+
+async function notifyTelegramOrder(order) {
+  if (!telegramEnabled()) return;
+
+  try {
+    const message = await callTelegram("sendMessage", {
+      chat_id: TELEGRAM_CHAT_ID,
+      text: formatTelegramOrder(order),
+      parse_mode: "HTML",
+      disable_web_page_preview: true,
+      reply_markup: telegramOrderKeyboard(order)
+    });
+    await rememberTelegramMessage(order.id, message);
+  } catch (error) {
+    console.error(`Telegram order notification failed: ${error.message}`);
+  }
+}
+
+async function refreshTelegramOrderMessage(order) {
+  if (!telegramEnabled() || !order.telegram?.messageId) return;
+
+  try {
+    await callTelegram("editMessageText", {
+      chat_id: order.telegram.chatId || TELEGRAM_CHAT_ID,
+      message_id: order.telegram.messageId,
+      text: formatTelegramOrder(order),
+      parse_mode: "HTML",
+      disable_web_page_preview: true,
+      reply_markup: telegramOrderKeyboard(order)
+    });
+  } catch (error) {
+    console.error(`Telegram order update failed: ${error.message}`);
+  }
+}
+
+async function handleTelegramUpdate(req, res, store) {
+  if (!telegramEnabled()) {
+    sendJson(res, 200, { ok: true, skipped: true });
+    return;
+  }
+
+  if (TELEGRAM_WEBHOOK_SECRET) {
+    const secret = req.headers["x-telegram-bot-api-secret-token"];
+    if (secret !== TELEGRAM_WEBHOOK_SECRET) {
+      sendJson(res, 403, { error: "Forbidden" });
+      return;
+    }
+  }
+
+  const update = await parseBody(req);
+  const callback = update.callback_query;
+  if (!callback) {
+    sendJson(res, 200, { ok: true });
+    return;
+  }
+
+  const chatId = String(callback.message?.chat?.id || "");
+  if (String(TELEGRAM_CHAT_ID) !== chatId) {
+    await callTelegram("answerCallbackQuery", {
+      callback_query_id: callback.id,
+      text: "Эта группа не подключена к STEAK BURGER.",
+      show_alert: true
+    }).catch(() => {});
+    sendJson(res, 200, { ok: true });
+    return;
+  }
+
+  const [, orderId, nextStatus] = String(callback.data || "").split(":");
+  if (!orderId || !statuses.has(nextStatus)) {
+    await callTelegram("answerCallbackQuery", {
+      callback_query_id: callback.id,
+      text: "Неизвестная команда."
+    }).catch(() => {});
+    sendJson(res, 200, { ok: true });
+    return;
+  }
+
+  const order = store.orders.find((item) => item.id === orderId);
+  if (!order) {
+    await callTelegram("answerCallbackQuery", {
+      callback_query_id: callback.id,
+      text: "Заказ не найден.",
+      show_alert: true
+    }).catch(() => {});
+    sendJson(res, 200, { ok: true });
+    return;
+  }
+
+  order.status = normalizeStatus(nextStatus);
+  order.updatedAt = now();
+  order.telegram ||= {};
+  order.telegram.updatedBy = {
+    id: callback.from?.id,
+    username: callback.from?.username || "",
+    name: [callback.from?.first_name, callback.from?.last_name].filter(Boolean).join(" "),
+    at: order.updatedAt
+  };
+  if (callback.message?.message_id) order.telegram.messageId = callback.message.message_id;
+  if (chatId) order.telegram.chatId = chatId;
+
+  await writeStore(store);
+  await callTelegram("answerCallbackQuery", {
+    callback_query_id: callback.id,
+    text: `Статус: ${statusLabels[order.status] || order.status}`
+  }).catch(() => {});
+  await refreshTelegramOrderMessage(order);
+  sendJson(res, 200, { ok: true });
+}
+
 async function handleApi(req, res, url) {
   const store = await readStore();
 
+  if (req.method === "POST" && url.pathname === "/api/telegram/webhook") {
+    await handleTelegramUpdate(req, res, store);
+    return true;
+  }
+
   if (req.method === "GET" && url.pathname === "/api/business") {
     sendJson(res, 200, store.business);
+    return true;
+  }
+
+  if (req.method === "GET" && url.pathname === "/api/site") {
+    sendJson(res, 200, {
+      business: store.business,
+      categories: store.categories.filter((category) => category.active !== false),
+      banners: store.banners.filter((banner) => banner.active !== false)
+    });
+    return true;
+  }
+
+  if (req.method === "GET" && url.pathname === "/api/categories") {
+    sendJson(res, 200, store.categories.filter((category) => category.active !== false));
     return true;
   }
 
@@ -554,6 +916,10 @@ async function handleApi(req, res, url) {
     const user = store.users.find((item) => item.username === username && item.active !== false);
 
     if (user && hashPassword(password, user.salt) === user.passwordHash) {
+      if (user.role !== "manager") {
+        sendJson(res, 403, { error: "Админка доступна только управляющему." });
+        return true;
+      }
       sendJson(res, 200, { token: signToken(user), user: publicUser(user) });
     } else {
       sendJson(res, 401, { error: "Неверный логин или пароль." });
@@ -568,12 +934,136 @@ async function handleApi(req, res, url) {
     return true;
   }
 
+  if (req.method === "GET" && url.pathname === "/api/upload-config") {
+    if (!requireUser(req, res, store, ["manager"])) return true;
+    sendJson(res, 200, {
+      provider: CLOUDINARY_CLOUD_NAME && CLOUDINARY_UPLOAD_PRESET ? "cloudinary" : "",
+      cloudName: CLOUDINARY_CLOUD_NAME,
+      uploadPreset: CLOUDINARY_UPLOAD_PRESET
+    });
+    return true;
+  }
+
+  if (url.pathname === "/api/business") {
+    if (!requireUser(req, res, store, ["manager"])) return true;
+
+    if (req.method === "PATCH") {
+      store.business = normalizeBusiness(await parseBody(req), store.business);
+      await writeStore(store);
+      sendJson(res, 200, { business: store.business });
+      return true;
+    }
+  }
+
+  if (url.pathname === "/api/admin/categories") {
+    if (!requireUser(req, res, store, ["manager"])) return true;
+
+    if (req.method === "GET") {
+      sendJson(res, 200, store.categories);
+      return true;
+    }
+  }
+
+  if (url.pathname === "/api/categories") {
+    if (!requireUser(req, res, store, ["manager"])) return true;
+
+    if (req.method === "POST") {
+      const category = normalizeCategory(await parseBody(req));
+      if (store.categories.some((item) => item.id === category.id)) {
+        sendJson(res, 409, { error: "Такая категория уже есть." });
+        return true;
+      }
+      store.categories.push(category);
+      await writeStore(store);
+      sendJson(res, 201, { category });
+      return true;
+    }
+  }
+
+  const categoryMatch = url.pathname.match(/^\/api\/categories\/([^/]+)$/);
+  if (categoryMatch) {
+    if (!requireUser(req, res, store, ["manager"])) return true;
+
+    const category = store.categories.find((item) => item.id === categoryMatch[1]);
+    if (!category) {
+      sendJson(res, 404, { error: "Категория не найдена." });
+      return true;
+    }
+
+    if (req.method === "PATCH") {
+      Object.assign(category, normalizeCategory(await parseBody(req), category));
+      await writeStore(store);
+      sendJson(res, 200, { category });
+      return true;
+    }
+
+    if (req.method === "DELETE") {
+      category.active = false;
+      category.updatedAt = now();
+      await writeStore(store);
+      sendJson(res, 200, { category });
+      return true;
+    }
+  }
+
+  if (url.pathname === "/api/admin/banners") {
+    if (!requireUser(req, res, store, ["manager"])) return true;
+
+    if (req.method === "GET") {
+      sendJson(res, 200, store.banners);
+      return true;
+    }
+  }
+
+  if (url.pathname === "/api/banners") {
+    if (!requireUser(req, res, store, ["manager"])) return true;
+
+    if (req.method === "POST") {
+      const banner = normalizeBanner(await parseBody(req));
+      if (store.banners.some((item) => item.id === banner.id)) {
+        sendJson(res, 409, { error: "Такой баннер уже есть." });
+        return true;
+      }
+      store.banners.push(banner);
+      await writeStore(store);
+      sendJson(res, 201, { banner });
+      return true;
+    }
+  }
+
+  const bannerMatch = url.pathname.match(/^\/api\/banners\/([^/]+)$/);
+  if (bannerMatch) {
+    if (!requireUser(req, res, store, ["manager"])) return true;
+
+    const banner = store.banners.find((item) => item.id === bannerMatch[1]);
+    if (!banner) {
+      sendJson(res, 404, { error: "Баннер не найден." });
+      return true;
+    }
+
+    if (req.method === "PATCH") {
+      Object.assign(banner, normalizeBanner(await parseBody(req), banner));
+      await writeStore(store);
+      sendJson(res, 200, { banner });
+      return true;
+    }
+
+    if (req.method === "DELETE") {
+      banner.active = false;
+      banner.updatedAt = now();
+      await writeStore(store);
+      sendJson(res, 200, { banner });
+      return true;
+    }
+  }
+
   if (req.method === "POST" && url.pathname === "/api/orders") {
     const body = await parseBody(req);
     const order = buildOrder(store, body);
     store.orders.unshift(order);
     upsertClient(store, order);
     await writeStore(store);
+    notifyTelegramOrder(order);
     sendJson(res, 201, { order });
     return true;
   }
@@ -602,6 +1092,7 @@ async function handleApi(req, res, url) {
       order.status = normalizeStatus(body.status);
       order.updatedAt = now();
       await writeStore(store);
+      refreshTelegramOrderMessage(order);
       sendJson(res, 200, { order });
       return true;
     }
@@ -882,7 +1373,7 @@ async function handleApi(req, res, url) {
 async function serveStatic(res, pathname) {
   const cleanPath = pathname === "/" ? "/index.html" : pathname;
   const filePath = cleanPath === "/admin" || cleanPath === "/admin/"
-    ? path.join(ROOT, "admin", "index.html")
+    ? path.join(ROOT, "admin.html")
     : path.join(ROOT, cleanPath);
   const resolved = path.resolve(filePath);
 
